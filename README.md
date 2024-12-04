@@ -5,11 +5,11 @@ A real-time weather monitoring system that collects data from world capitals usi
 ## Dashboard Preview
 
 ### Interactive World Map
-![Weather Map](map.png)
+![Weather Map](images/map.png)
 *Interactive map showing real-time temperatures with heat map overlay and hover tooltips*
 
 ### Weather Cards
-![Weather Details](cells.png)
+![Weather Details](images/cells.png)
 *Detailed weather cards showing current conditions for each capital city*
 
 ## Features
