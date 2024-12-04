@@ -1,0 +1,6 @@
+confluent-kafka
+requests
+flask
+folium
+pandas
+python-dotenv
