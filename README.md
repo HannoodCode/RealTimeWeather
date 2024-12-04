@@ -92,10 +92,6 @@ Check application logs in the `logs` directory:
 - `consumer.log`: Data consumption and storage logs
 - `flask.log`: Web server and visualization logs
 
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
 ## Acknowledgments
 
 - Weather data provided by [WeatherAPI.com](https://www.weatherapi.com/)
