@@ -1,3 +1,4 @@
 /.env
 /kafkatest
 /weather_data.db
+/logs
