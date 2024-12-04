@@ -7,6 +7,17 @@ from folium import plugins
 
 app = Flask(__name__)
 
+# Separate UAE cities
+UAE_CITIES = {
+    "Dubai": [25.2048, 55.2708],
+    "Abu Dhabi": [24.4539, 54.3773],
+    "Sharjah": [25.3573, 55.4033],
+    "Ajman": [25.4052, 55.5136],
+    "Ras Al Khaimah": [25.7895, 55.9432],
+    "Fujairah": [25.1288, 56.3265],
+    "Umm Al Quwain": [25.5647, 55.5532]
+}
+
 # Dictionary of city coordinates
 CITY_COORDINATES = {
     "Kabul": [34.5253, 69.1783],
@@ -77,8 +88,6 @@ CITY_COORDINATES = {
     "Bern": [46.9480, 7.4474],
     "Damascus": [33.5138, 36.2765],
     "Bangkok": [13.7563, 100.5018],
-    "Abu Dhabi": [24.4539, 54.3773],
-    "Dubai": [25.2048, 55.2708],
     "London": [51.5074, -0.1278],
     "Washington, D.C.": [38.9072, -77.0369],
     "Montevideo": [-34.9011, -56.1645],
@@ -103,84 +112,187 @@ def get_weather_data():
 
 def create_weather_map(df):
     """Create a Folium map with weather data"""
-    # Get the latest data for each city
-    latest_data = df.groupby('city').first().reset_index()
+    try:
+        # Get the latest data for each city
+        latest_data = df.groupby('city').first().reset_index()
+        
+        # Create a map centered on UAE with limited scrolling
+        weather_map = folium.Map(
+            location=[24.4539, 54.3773],  # Centered on Abu Dhabi
+            zoom_start=4,
+            tiles='CartoDB positron',  # English map tiles
+            prefer_canvas=True,
+            min_zoom=2,
+            max_bounds=True,
+            min_lat=-90,
+            max_lat=90,
+            min_lon=-180,
+            max_lon=180,
+            max_bounds_viscosity=1.0,
+            control_scale=True
+        )
+        
+        # First add UAE cities
+        uae_heat_data = []
+        for _, row in latest_data.iterrows():
+            city = row['city']
+            if city in UAE_CITIES:
+                lat, lon = UAE_CITIES[city]
+                add_city_marker(weather_map, city, lat, lon, row)
+                uae_heat_data.append([lat, lon, row['temperature']])
+        
+        # Add UAE heat map first if we have data
+        if uae_heat_data:
+            plugins.HeatMap(
+                uae_heat_data,
+                radius=25,
+                blur=15,
+                max_zoom=1,
+                min_opacity=0.5
+            ).add_to(weather_map)
+        
+        # Then add other cities
+        other_heat_data = []
+        for _, row in latest_data.iterrows():
+            city = row['city']
+            if city in CITY_COORDINATES and city not in UAE_CITIES:
+                lat, lon = CITY_COORDINATES[city]
+                add_city_marker(weather_map, city, lat, lon, row)
+                other_heat_data.append([lat, lon, row['temperature']])
+        
+        # Add global heat map if we have data
+        if other_heat_data:
+            plugins.HeatMap(
+                other_heat_data,
+                radius=25,
+                blur=15,
+                max_zoom=1,
+                min_opacity=0.5
+            ).add_to(weather_map)
+
+        # Add fullscreen option only
+        plugins.Fullscreen().add_to(weather_map)
+        
+        # Add custom JavaScript to limit scrolling
+        custom_js = """
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var map = document.querySelector('#map');
+            if (map) {
+                map._leaflet.setMaxBounds([[-90,-180], [90,180]]);
+                map._leaflet.setMinZoom(2);
+            }
+        });
+        </script>
+        """
+        weather_map.get_root().html.add_child(folium.Element(custom_js))
+        
+        return weather_map._repr_html_()
+        
+    except Exception as e:
+        print(f"Error creating map: {e}")
+        return None
+
+def add_city_marker(map_obj, city, lat, lon, row):
+    """Add a city marker to the map"""
+    # Create info window content
+    popup_html = f"""
+        <div class="weather-popup" style="
+            background-color: white;
+            padding: 12px;
+            border-radius: 8px;
+            border: 2px solid {get_temperature_color(row['temperature'])};
+            font-family: Arial;
+            font-size: 14px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            min-width: 200px;
+            z-index: 1000;
+        ">
+            <div style="
+                font-weight: bold;
+                font-size: 18px;
+                margin-bottom: 8px;
+                color: {get_temperature_color(row['temperature'])};
+                border-bottom: 2px solid {get_temperature_color(row['temperature'])}20;
+                padding-bottom: 5px;
+            ">
+                {city}
+            </div>
+            <div style="display: grid; grid-gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 16px;">🌡️</span>
+                    <span><strong>Temperature:</strong> {row['temperature']}°C</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 16px;">💧</span>
+                    <span><strong>Humidity:</strong> {row['humidity']}%</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 16px;">💨</span>
+                    <span><strong>Wind Speed:</strong> {row['wind_speed']} km/h</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 16px;">🌤️</span>
+                    <span><strong>Condition:</strong> {row['condition']}</span>
+                </div>
+            </div>
+        </div>
+    """
     
-    # Create a map centered on Dubai
-    weather_map = folium.Map(
-        location=[25.2048, 55.2708],
-        zoom_start=3,
-        tiles='cartodbpositron'
+    # Create a unique ID for the marker
+    marker_id = f"marker_{city.replace(' ', '_').replace(',', '').replace('.', '')}"
+    
+    # Add marker with popup
+    marker = folium.CircleMarker(
+        location=[lat, lon],
+        radius=8,
+        popup=folium.Popup(
+            popup_html,
+            max_width=300,
+            show=False,
+            sticky=False
+        ),
+        color=get_temperature_color(row['temperature']),
+        fill=True,
+        fill_color=get_temperature_color(row['temperature']),
+        fill_opacity=0.7,
+        weight=2,
+        opacity=1
     )
     
-    # Add weather data markers for each city
-    for _, row in latest_data.iterrows():
-        city = row['city']
-        if city in CITY_COORDINATES:
-            lat, lon = CITY_COORDINATES[city]
-            
-            # Create tooltip with HTML styling
-            tooltip_html = f"""
-                <div style="
-                    background-color: white;
-                    padding: 8px;
-                    border-radius: 4px;
-                    border: 2px solid {get_temperature_color(row['temperature'])};
-                    font-family: Arial;
-                    font-size: 14px;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-                ">
-                    <strong>{city}</strong><br>
-                    🌡️ {row['temperature']}°C
-                </div>
-            """
-            
-            # Create popup content with more detailed information
-            popup_content = f"""
-                <div style='font-family: Arial; width: 200px; padding: 10px;'>
-                    <h4 style='margin:0 0 10px 0; color: #2C3E50;'>{city}</h4>
-                    <div style='background: {get_temperature_color(row['temperature'])}20; padding: 10px; border-radius: 5px;'>
-                        <p style='margin:5px 0'><b>🌡️ Temperature:</b> {row['temperature']}°C</p>
-                        <p style='margin:5px 0'><b>💧 Humidity:</b> {row['humidity']}%</p>
-                        <p style='margin:5px 0'><b>💨 Wind Speed:</b> {row['wind_speed']} km/h</p>
-                        <p style='margin:5px 0'><b>🌤️ Condition:</b> {row['condition']}</p>
-                    </div>
-                </div>
-            """
-            
-            # Add marker with custom icon, tooltip, and popup
-            folium.CircleMarker(
-                location=[lat, lon],
-                radius=8,
-                popup=folium.Popup(popup_content, max_width=300),
-                tooltip=folium.Tooltip(
-                    tooltip_html,
-                    permanent=False,
-                    sticky=True
-                ),
-                color=get_temperature_color(row['temperature']),
-                fill=True,
-                fill_color=get_temperature_color(row['temperature']),
-                fill_opacity=0.7,
-                weight=2
-            ).add_to(weather_map)
+    # Add the marker to the map
+    marker.add_to(map_obj)
     
-    # Add a temperature heatmap layer with reduced radius
-    heat_data = [
-        [CITY_COORDINATES[row['city']][0], 
-         CITY_COORDINATES[row['city']][1], 
-         row['temperature']] 
-        for _, row in latest_data.iterrows() 
-        if row['city'] in CITY_COORDINATES
-    ]
-    plugins.HeatMap(
-        heat_data,
-        radius=25,
-        blur=15,
-        max_zoom=1
-    ).add_to(weather_map)
+    # Add click event handler using Element
+    click_script = f"""
+        <script>
+            (function() {{
+                var marker = document.querySelector('#{marker_id}');
+                if (marker) {{
+                    marker.addEventListener('click', function(e) {{
+                        // Close all popups
+                        var popups = document.querySelectorAll('.leaflet-popup');
+                        popups.forEach(function(popup) {{
+                            popup.remove();
+                        }});
+                        
+                        // Show this marker's popup
+                        var popup = L.popup()
+                            .setLatLng([{lat}, {lon}])
+                            .setContent(`{popup_html}`)
+                            .openOn(map);
+                            
+                        // Close popup when clicking elsewhere on the map
+                        map.once('click', function() {{
+                            map.closePopup(popup);
+                        }});
+                    }});
+                }}
+            }})();
+        </script>
+    """
     
-    return weather_map._repr_html_()
+    map_obj.get_root().html.add_child(folium.Element(click_script))
 
 def get_temperature_color(temp):
     """Return color based on temperature"""
@@ -197,12 +309,27 @@ def get_temperature_color(temp):
 
 @app.route('/')
 def index():
-    df = get_weather_data()
-    weather_map_html = create_weather_map(df)
-    latest_data = df.groupby('city').first().reset_index()
-    return render_template('index.html', 
-                         weather_map=weather_map_html,
-                         latest_data=latest_data.to_dict('records'))
+    try:
+        df = get_weather_data()
+        if df.empty:
+            raise ValueError("No weather data available")
+            
+        weather_map_html = create_weather_map(df)
+        latest_data = df.groupby('city').first().reset_index()
+        
+        # Prioritize UAE cities in the weather cards
+        uae_data = latest_data[latest_data['city'].isin(UAE_CITIES.keys())]
+        other_data = latest_data[~latest_data['city'].isin(UAE_CITIES.keys())]
+        sorted_data = pd.concat([uae_data, other_data])
+        
+        return render_template('index.html', 
+                             weather_map=weather_map_html,
+                             latest_data=sorted_data.to_dict('records'))
+    except Exception as e:
+        print(f"Error in index route: {e}")
+        return render_template('index.html', 
+                             weather_map=None,
+                             latest_data=[])
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000) 

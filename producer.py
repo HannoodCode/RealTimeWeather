@@ -6,10 +6,22 @@ from datetime import datetime
 from confluent_kafka import Producer
 import os
 from dotenv import load_dotenv
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 load_dotenv()
 
-# World capitals with their coordinates
+# Separate UAE cities from other capitals
+UAE_CITIES = {
+    "Dubai": [25.2048, 55.2708],
+    "Abu Dhabi": [24.4539, 54.3773],
+    "Sharjah": [25.3573, 55.4033],
+    "Ajman": [25.4052, 55.5136],
+    "Ras Al Khaimah": [25.7895, 55.9432],
+    "Fujairah": [25.1288, 56.3265],
+    "Umm Al Quwain": [25.5647, 55.5532]
+}
+
+# Rest of the world capitals
 WORLD_CAPITALS = {
     "Kabul": [34.5253, 69.1783],
     "Tirana": [41.3275, 19.8187],
@@ -78,8 +90,6 @@ WORLD_CAPITALS = {
     "Bern": [46.9480, 7.4474],
     "Damascus": [33.5138, 36.2765],
     "Bangkok": [13.7563, 100.5018],
-    "Abu Dhabi": [24.4539, 54.3773],
-    "Dubai": [25.2048, 55.2708],
     "London": [51.5074, -0.1278],
     "Washington, D.C.": [38.9072, -77.0369],
     "Montevideo": [-34.9011, -56.1645],
@@ -94,7 +104,7 @@ def fetch_weather_data(api_key, city):
     params = {
         'key': api_key,
         'q': city,
-        'aqi': 'yes'  # Include air quality data
+        'aqi': 'yes'
     }
     
     try:
@@ -106,6 +116,60 @@ def fetch_weather_data(api_key, city):
     except requests.exceptions.RequestException as e:
         print(f"Error fetching weather data for {city}: {e}")
         return None
+
+def fetch_initial_cities(producer, api_key, topic):
+    """Fetch UAE cities first for quick initial load"""
+    print("\nFetching UAE cities first...")
+    
+    def fetch_and_produce(city):
+        weather_data = fetch_weather_data(api_key, city)
+        if weather_data:
+            try:
+                weather_data['timestamp'] = datetime.now().isoformat()
+                json_data = json.dumps(weather_data)
+                producer.produce(
+                    topic=topic,
+                    key=city.encode('utf-8'),
+                    value=json_data.encode('utf-8'),
+                    callback=delivery_callback
+                )
+            except Exception as e:
+                print(f"Error processing data for {city}: {e}")
+        return city
+
+    # Use ThreadPoolExecutor to fetch UAE cities in parallel
+    with ThreadPoolExecutor(max_workers=len(UAE_CITIES)) as executor:
+        futures = [executor.submit(fetch_and_produce, city) for city in UAE_CITIES.keys()]
+        for future in as_completed(futures):
+            try:
+                city = future.result()
+                print(f"Completed fetching {city}")
+            except Exception as e:
+                print(f"Error in parallel fetch: {e}")
+
+    producer.poll(0)
+    producer.flush()
+
+def fetch_remaining_cities(producer, api_key, topic):
+    """Fetch remaining world capitals in the background"""
+    print("\nFetching remaining world capitals...")
+    for city in WORLD_CAPITALS.keys():
+        weather_data = fetch_weather_data(api_key, city)
+        if weather_data:
+            try:
+                weather_data['timestamp'] = datetime.now().isoformat()
+                json_data = json.dumps(weather_data)
+                producer.produce(
+                    topic=topic,
+                    key=city.encode('utf-8'),
+                    value=json_data.encode('utf-8'),
+                    callback=delivery_callback
+                )
+                time.sleep(1)  # Longer delay for remaining cities
+            except Exception as e:
+                print(f"Error processing data for {city}: {e}")
+        producer.poll(0)
+    producer.flush()
 
 def delivery_callback(err, msg):
     """Delivery callback for Kafka producer"""
@@ -135,35 +199,12 @@ if __name__ == '__main__':
 
     try:
         while True:
-            for city in cities:
-                # Fetch weather data for each city
-                weather_data = fetch_weather_data(weather_api_key, city)
-                
-                if weather_data:
-                    try:
-                        # Add timestamp
-                        weather_data['timestamp'] = datetime.now().isoformat()
-                        
-                        # Convert to JSON and produce to Kafka
-                        json_data = json.dumps(weather_data)
-                        print(f"Sending data for {city}: {json_data[:200]}...")
-                        
-                        producer.produce(
-                            topic=topic,
-                            key=city.encode('utf-8'),
-                            value=json_data.encode('utf-8'),
-                            callback=delivery_callback
-                        )
-                        
-                        # Small delay between requests to avoid rate limiting
-                        time.sleep(1)
-                    except Exception as e:
-                        print(f"Error processing data for {city}: {e}")
-                
-                # Flush messages for each city
-                producer.poll(0)
+            # First fetch UAE cities quickly
+            fetch_initial_cities(producer, weather_api_key, topic)
             
-            producer.flush()
+            # Then fetch remaining cities in the background
+            fetch_remaining_cities(producer, weather_api_key, topic)
+            
             print("\nWaiting 6 hours before next update...")
             time.sleep(21600)  # Wait 6 hours before next round
             

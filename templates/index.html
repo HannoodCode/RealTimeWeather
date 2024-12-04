@@ -92,94 +92,219 @@
             from { opacity: 0; }
             to { opacity: 1; }
         }
+
+        /* Skeleton loading styles */
+        .skeleton {
+            animation: skeleton-loading 1s linear infinite alternate;
+        }
+
+        @keyframes skeleton-loading {
+            0% {
+                background-color: hsl(200, 20%, 80%);
+            }
+            100% {
+                background-color: hsl(200, 20%, 95%);
+            }
+        }
+
+        .skeleton-map {
+            width: 100%;
+            height: 600px;
+            background: #eee;
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .skeleton-map::after {
+            content: "Loading Map...";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #666;
+            font-size: 1.5em;
+        }
+
+        .skeleton-card {
+            height: 180px;
+            background: #eee;
+            border-radius: 12px;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
+    <!-- Loading overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div style="text-align: center;">
+            <div class="loading-spinner" style="margin-bottom: 20px;"></div>
+            <div style="color: #2C3E50; font-size: 1.2em;">Loading Weather Data...</div>
+        </div>
+    </div>
+
     <div class="header">
         <h1>Real-time Weather Dashboard</h1>
     </div>
 
-    <!-- Add loading indicator -->
     <div id="refreshStatus" class="refresh-status">
         🔄 Updating weather data...
     </div>
 
     <div class="container">
         <!-- Weather Map -->
-        <div class="map-container">
-            {{ weather_map | safe }}
+        <div class="map-container" id="mapContainer">
+            <div id="actualMap" style="height: 100%;">
+                {{ weather_map | safe if weather_map else '' }}
+            </div>
         </div>
 
         <!-- Current Weather Cards -->
         <div class="current-weather" id="weatherCards">
-            {% for weather in latest_data %}
-            <div class="weather-card">
-                <h3>{{ weather.city }}</h3>
-                <p><span class="weather-icon">🌡️</span><strong>Temperature:</strong> {{ "%.1f"|format(weather.temperature) }}°C</p>
-                <p><span class="weather-icon">💧</span><strong>Humidity:</strong> {{ "%.0f"|format(weather.humidity) }}%</p>
-                <p><span class="weather-icon">💨</span><strong>Wind Speed:</strong> {{ "%.1f"|format(weather.wind_speed) }} km/h</p>
-                <p><span class="weather-icon">🌤️</span><strong>Condition:</strong> {{ weather.condition }}</p>
-            </div>
-            {% endfor %}
+            {% if latest_data %}
+                {% for weather in latest_data %}
+                <div class="weather-card">
+                    <h3>{{ weather.city }}</h3>
+                    <p><span class="weather-icon">🌡️</span><strong>Temperature:</strong> {{ "%.1f"|format(weather.temperature) }}°C</p>
+                    <p><span class="weather-icon">💧</span><strong>Humidity:</strong> {{ "%.0f"|format(weather.humidity) }}%</p>
+                    <p><span class="weather-icon">💨</span><strong>Wind Speed:</strong> {{ "%.1f"|format(weather.wind_speed) }} km/h</p>
+                    <p><span class="weather-icon">🌤️</span><strong>Condition:</strong> {{ weather.condition }}</p>
+                </div>
+                {% endfor %}
+            {% else %}
+                {% for i in range(6) %}
+                <div class="skeleton-card"></div>
+                {% endfor %}
+            {% endif %}
         </div>
     </div>
 
     <script>
-        // Function to show the refresh status
-        function showRefreshStatus() {
-            const status = document.getElementById('refreshStatus');
-            status.classList.add('show');
+        let citiesLoaded = new Set();
+        let uaeCitiesCount = 7;
+        let totalExpectedCities = 70;
+        let initialLoadDone = false;
+        let refreshInterval;
+        let mapLoaded = false;
+
+        function showLoadingOverlay() {
+            document.getElementById('loadingOverlay').style.display = 'flex';
         }
 
-        // Function to hide the refresh status
-        function hideRefreshStatus() {
-            const status = document.getElementById('refreshStatus');
-            status.classList.remove('show');
+        function hideLoadingOverlay() {
+            document.getElementById('loadingOverlay').style.display = 'none';
         }
 
-        // Function to refresh the dashboard
+        function checkLoadedCities(weatherCards) {
+            const cities = Array.from(weatherCards.querySelectorAll('.weather-card h3'))
+                               .map(h3 => h3.textContent.trim());
+            cities.forEach(city => citiesLoaded.add(city));
+            return cities.length;
+        }
+
         async function refreshDashboard() {
             try {
-                showRefreshStatus();
-                
-                // Fetch the updated page content
+                // Show refresh status if not all cities are loaded
+                if (citiesLoaded.size < totalExpectedCities) {
+                    document.getElementById('refreshStatus').classList.add('show');
+                }
+
                 const response = await fetch(window.location.href);
                 const html = await response.text();
                 
-                // Create a temporary container to parse the HTML
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
                 
                 // Update the map
-                const newMap = doc.querySelector('.map-container').innerHTML;
-                document.querySelector('.map-container').innerHTML = newMap;
+                const newMap = doc.querySelector('#actualMap').innerHTML;
+                if (newMap && newMap.includes('leaflet')) {
+                    const actualMap = document.getElementById('actualMap');
+                    actualMap.innerHTML = newMap;
+                    if (!mapLoaded) {
+                        console.log('Map loaded successfully');
+                        mapLoaded = true;
+                    }
+                }
                 
-                // Update the weather cards
+                // Update weather cards
+                const weatherCardsContainer = document.querySelector('.current-weather');
                 const newCards = doc.querySelector('.current-weather').innerHTML;
-                document.querySelector('.current-weather').innerHTML = newCards;
                 
-                hideRefreshStatus();
+                if (newCards.includes('weather-card')) {
+                    weatherCardsContainer.innerHTML = newCards;
+                    const currentLoadedCount = checkLoadedCities(weatherCardsContainer);
+                    console.log(`Loaded cities: ${currentLoadedCount}/${totalExpectedCities}`);
+
+                    // Update refresh status text
+                    document.getElementById('refreshStatus').textContent = 
+                        `🔄 Loading cities... (${currentLoadedCount}/${totalExpectedCities})`;
+
+                    // Remove loading overlay when we have both map and UAE cities
+                    if (!initialLoadDone && currentLoadedCount >= uaeCitiesCount && mapLoaded) {
+                        console.log('Initial load complete');
+                        hideLoadingOverlay();
+                        initialLoadDone = true;
+                    }
+
+                    // Stop refreshing when all cities are loaded
+                    if (currentLoadedCount >= totalExpectedCities && mapLoaded) {
+                        console.log('All cities loaded, stopping refresh');
+                        clearInterval(refreshInterval);
+                        document.getElementById('refreshStatus').classList.remove('show');
+                        return;
+                    }
+                }
+                
             } catch (error) {
                 console.error('Error refreshing dashboard:', error);
-                hideRefreshStatus();
             }
         }
 
-        // Initial refresh after 5 seconds
-        setTimeout(() => {
+        // Initial page load
+        document.addEventListener('DOMContentLoaded', () => {
+            showLoadingOverlay();
+            
+            // Show refresh status immediately
+            document.getElementById('refreshStatus').classList.add('show');
+            
+            // Try to load immediately
             refreshDashboard();
-        }, 10000);
-
-        // Set up periodic refresh every 30 seconds
-        setInterval(() => {
-            refreshDashboard();
-        }, 10000);
-
-        // Refresh when the page becomes visible again
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') {
-                refreshDashboard();
-            }
+            
+            // Set up refresh interval
+            refreshInterval = setInterval(() => {
+                if (!mapLoaded || citiesLoaded.size < totalExpectedCities) {
+                    refreshDashboard();
+                } else {
+                    clearInterval(refreshInterval);
+                    document.getElementById('refreshStatus').classList.remove('show');
+                }
+            }, 10000);
         });
     </script>
 </body>
