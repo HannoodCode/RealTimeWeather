@@ -3,6 +3,55 @@ import sys
 import time
 from datetime import datetime
 import os
+import venv
+import platform
+
+def create_venv():
+    """Create virtual environment if it doesn't exist"""
+    venv_dir = 'venv'
+    if not os.path.exists(venv_dir):
+        print("Creating virtual environment...")
+        venv.create(venv_dir, with_pip=True)
+        print("Virtual environment created successfully!")
+    return venv_dir
+
+def get_venv_python():
+    """Get the path to the virtual environment's Python executable"""
+    if platform.system() == 'Windows':
+        python_path = os.path.join('venv', 'Scripts', 'python.exe')
+    else:
+        python_path = os.path.join('venv', 'bin', 'python')
+    return python_path
+
+def get_venv_pip():
+    """Get the path to the virtual environment's pip executable"""
+    if platform.system() == 'Windows':
+        pip_path = os.path.join('venv', 'Scripts', 'pip.exe')
+    else:
+        pip_path = os.path.join('venv', 'bin', 'pip')
+    return pip_path
+
+def check_and_install_requirements():
+    """Check and install required packages in virtual environment"""
+    if not os.path.exists('requirements.txt'):
+        print("Creating requirements.txt...")
+        with open('requirements.txt', 'w') as f:
+            f.write("""confluent-kafka
+requests
+flask
+folium
+pandas
+python-dotenv
+""")
+
+    print("Installing requirements in virtual environment...")
+    try:
+        pip_path = get_venv_pip()
+        subprocess.check_call([pip_path, 'install', '-r', 'requirements.txt'])
+        print("All requirements installed successfully!")
+    except Exception as e:
+        print(f"Error installing requirements: {e}")
+        sys.exit(1)
 
 def run_command(command, log_file):
     """Run a command and log its output"""
@@ -24,22 +73,31 @@ def run_command(command, log_file):
         return process.returncode
 
 def main():
+    # Create virtual environment
+    venv_dir = create_venv()
+    
+    # Get virtual environment Python path
+    python_path = get_venv_python()
+    
+    # Check and install requirements
+    check_and_install_requirements()
+
     # Create logs directory if it doesn't exist
     if not os.path.exists('logs'):
         os.makedirs('logs')
 
-    # Start all components
+    # Start all components using virtual environment Python
     processes = {
         'producer': {
-            'command': [sys.executable, 'producer.py'],
+            'command': [python_path, 'producer.py'],
             'log': 'logs/producer.log'
         },
         'consumer': {
-            'command': [sys.executable, 'consumer.py'],
+            'command': [python_path, 'consumer.py'],
             'log': 'logs/consumer.log'
         },
         'flask': {
-            'command': [sys.executable, 'app.py'],
+            'command': [python_path, 'app.py'],
             'log': 'logs/flask.log'
         }
     }
@@ -68,7 +126,7 @@ def main():
     except KeyboardInterrupt:
         print("\nStopping all components...")
         # Kill all Python processes (this will stop our components)
-        if sys.platform == 'win32':
+        if platform.system() == 'Windows':
             subprocess.run(['taskkill', '/F', '/IM', 'python.exe'])
         else:
             subprocess.run(['pkill', '-f', 'python'])

@@ -70,11 +70,38 @@
             width: 24px;
             text-align: center;
         }
+        /* Add loading indicator styles */
+        .refresh-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(44, 62, 80, 0.9);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            display: none;
+            z-index: 1000;
+        }
+        
+        .refresh-status.show {
+            display: block;
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>Real-time Weather Dashboard</h1>
+    </div>
+
+    <!-- Add loading indicator -->
+    <div id="refreshStatus" class="refresh-status">
+        🔄 Updating weather data...
     </div>
 
     <div class="container">
@@ -84,7 +111,7 @@
         </div>
 
         <!-- Current Weather Cards -->
-        <div class="current-weather">
+        <div class="current-weather" id="weatherCards">
             {% for weather in latest_data %}
             <div class="weather-card">
                 <h3>{{ weather.city }}</h3>
@@ -96,5 +123,64 @@
             {% endfor %}
         </div>
     </div>
+
+    <script>
+        // Function to show the refresh status
+        function showRefreshStatus() {
+            const status = document.getElementById('refreshStatus');
+            status.classList.add('show');
+        }
+
+        // Function to hide the refresh status
+        function hideRefreshStatus() {
+            const status = document.getElementById('refreshStatus');
+            status.classList.remove('show');
+        }
+
+        // Function to refresh the dashboard
+        async function refreshDashboard() {
+            try {
+                showRefreshStatus();
+                
+                // Fetch the updated page content
+                const response = await fetch(window.location.href);
+                const html = await response.text();
+                
+                // Create a temporary container to parse the HTML
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                // Update the map
+                const newMap = doc.querySelector('.map-container').innerHTML;
+                document.querySelector('.map-container').innerHTML = newMap;
+                
+                // Update the weather cards
+                const newCards = doc.querySelector('.current-weather').innerHTML;
+                document.querySelector('.current-weather').innerHTML = newCards;
+                
+                hideRefreshStatus();
+            } catch (error) {
+                console.error('Error refreshing dashboard:', error);
+                hideRefreshStatus();
+            }
+        }
+
+        // Initial refresh after 5 seconds
+        setTimeout(() => {
+            refreshDashboard();
+        }, 10000);
+
+        // Set up periodic refresh every 30 seconds
+        setInterval(() => {
+            refreshDashboard();
+        }, 10000);
+
+        // Refresh when the page becomes visible again
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                refreshDashboard();
+            }
+        });
+    </script>
 </body>
 </html> 
