@@ -16,11 +16,11 @@ A real-time weather monitoring dashboard that displays weather information for w
 ## Screenshots
 
 ### Interactive Map View
-![Map View](map.png)
+![Map View](images/map.png)
 *Interactive map showing world capitals with temperature-based coloring and heat map overlay*
 
 ### Weather Cards View
-![Weather Cards](cells.png)
+![Weather Cards](images/cells.png)
 *Detailed weather cards showing current conditions for each city*
 
 ## Data Display
