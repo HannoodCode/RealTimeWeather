@@ -1,99 +1,48 @@
-# Global Weather Dashboard with Kafka Streaming
+# Real-time World Capitals Weather Dashboard
 
-A real-time weather monitoring system that collects data from world capitals using Kafka streaming pipeline and visualizes it on an interactive map.
-
-## Dashboard Preview
-
-### Interactive World Map
-![Weather Map](images/map.png)
-*Interactive map showing real-time temperatures with heat map overlay and hover tooltips*
-
-### Weather Cards
-![Weather Details](images/cells.png)
-*Detailed weather cards showing current conditions for each capital city*
+A real-time weather monitoring dashboard that displays weather information for world capitals and all UAE emirates. The dashboard features an interactive map and detailed weather cards.
 
 ## Features
 
-- 🌍 Real-time weather data from 70+ world capitals
-- 🗺️ Interactive map visualization with:
-  - Temperature-based heat map
-  - Hover tooltips with quick temperature view
-  - Detailed popups with full weather information
-- 📊 Responsive weather cards with:
-  - Current temperature
-  - Humidity levels
-  - Wind speed
-  - Weather conditions
-- 🔄 Updates every 6 hours
-- 🎨 Temperature-based color coding:
-  - Blue: < 0°C
-  - Light Blue: 0-10°C
-  - Green: 10-20°C
-  - Orange: 20-30°C
-  - Red: > 30°C
-- 💾 Historical data storage in SQLite
+- Interactive world map with temperature-based color coding
+- Real-time weather updates for world capitals and UAE emirates
+- Temperature heat map overlay
+- Detailed weather cards with temperature, humidity, wind speed, and conditions
+- Search functionality to filter cities
+- Responsive design for all screen sizes
+- Color-coded temperature indicators
+- Hover tooltips on map markers
 
-## Architecture
+## Screenshots
 
-- **Producer**: Fetches weather data from WeatherAPI.com every 6 hours
-- **Kafka**: Handles data streaming between components
-- **Consumer**: Processes incoming data and stores in SQLite
-- **Flask App**: Serves the web dashboard with Folium maps
-- **Database**: SQLite storing historical weather data
+### Interactive Map View
+![Map View](map.png)
+*Interactive map showing world capitals with temperature-based coloring and heat map overlay*
 
-## Prerequisites
+### Weather Cards View
+![Weather Cards](cells.png)
+*Detailed weather cards showing current conditions for each city*
 
-- Python 3.8+
-- Confluent Kafka account
-- WeatherAPI.com API key
-- Required Python packages:
-  ```bash
-  pip install confluent-kafka requests flask folium pandas python-dotenv
-  ```
+## Data Display
 
-## Environment Setup
+For each city, the dashboard shows:
+- Temperature (°C)
+- Humidity (%)
+- Wind Speed (km/h)
+- Weather Condition
+- Color-coded temperature indicators
 
-Create a `.env` file with your credentials:
-```env
-WEATHERAPI_KEY=your_weather_api_key
-KAFKA_BOOTSTRAP_SERVERS=your_kafka_server
-KAFKA_USERNAME=your_kafka_username
-KAFKA_PASSWORD=your_kafka_password
-```
+## Technical Details
 
-## Running the Application
+The project consists of three main components:
+1. **Producer**: Fetches weather data from WeatherAPI.com
+2. **Consumer**: Processes and stores the data in SQLite database
+3. **Dashboard**: Flask web application displaying the data
 
-1. Start all components using:
+## Setup
+
+1. Clone the repository
+2. Install requirements:
 ```bash
-python run_all.py
+pip install -r
 ```
-
-2. Access the dashboard at:
-```
-http://localhost:5000
-```
-
-## Project Structure
-```
-├── app.py              # Flask application & map visualization
-├── producer.py         # Weather data fetcher & Kafka producer
-├── consumer.py         # Kafka consumer & database handler
-├── run_all.py         # Application orchestrator
-├── templates/         
-│   └── index.html     # Dashboard template
-├── .env               # Environment variables
-└── weather_data.db    # SQLite database
-```
-
-## Monitoring
-
-Check application logs in the `logs` directory:
-- `producer.log`: Weather API and Kafka production logs
-- `consumer.log`: Data consumption and storage logs
-- `flask.log`: Web server and visualization logs
-
-## Acknowledgments
-
-- Weather data provided by [WeatherAPI.com](https://www.weatherapi.com/)
-- Map visualization using [Folium](https://python-visualization.github.io/folium/)
-- Streaming platform by [Confluent Kafka](https://www.confluent.io/)

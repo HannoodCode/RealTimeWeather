@@ -101,9 +101,15 @@ WORLD_CAPITALS = {
 def fetch_weather_data(api_key, city):
     """Fetch weather data from WeatherAPI.com"""
     base_url = "http://api.weatherapi.com/v1/current.json"
+    
+    # Handle special cases for city names
+    api_city = city
+    if city == "Washington, D.C.":
+        api_city = "Washington DC"  # WeatherAPI prefers this format
+    
     params = {
         'key': api_key,
-        'q': city,
+        'q': api_city,
         'aqi': 'yes'
     }
     
@@ -111,6 +117,9 @@ def fetch_weather_data(api_key, city):
         response = requests.get(base_url, params=params)
         response.raise_for_status()
         data = response.json()
+        # Ensure we use our original city name in the data
+        if city == "Washington, D.C.":
+            data['location']['name'] = "Washington, D.C."
         print(f"Successfully fetched data for {city}")
         return data
     except requests.exceptions.RequestException as e:

@@ -13,14 +13,6 @@
             margin: 20px auto;
             max-width: 1400px;
         }
-        .map-container {
-            width: 100%;
-            height: 600px;
-            margin: 20px 0;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
         .current-weather {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
@@ -54,7 +46,7 @@
         }
         .header {
             text-align: center;
-            padding: 30px 20px;
+            padding: 25px 20px;
             background: linear-gradient(135deg, #2C3E50, #3498db);
             color: white;
             margin-bottom: 20px;
@@ -65,12 +57,17 @@
             font-size: 2.5em;
             font-weight: 300;
         }
+        .subtitle {
+            margin-top: 10px;
+            font-size: 1.2em;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 300;
+        }
         .weather-icon {
             font-size: 1.2em;
             width: 24px;
             text-align: center;
         }
-        /* Add loading indicator styles */
         .refresh-status {
             position: fixed;
             top: 20px;
@@ -82,124 +79,120 @@
             display: none;
             z-index: 1000;
         }
-        
         .refresh-status.show {
             display: block;
             animation: fadeIn 0.3s ease-in;
         }
-        
         @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
         }
-
-        /* Skeleton loading styles */
-        .skeleton {
-            animation: skeleton-loading 1s linear infinite alternate;
-        }
-
-        @keyframes skeleton-loading {
-            0% {
-                background-color: hsl(200, 20%, 80%);
-            }
-            100% {
-                background-color: hsl(200, 20%, 95%);
-            }
-        }
-
-        .skeleton-map {
+        .map-container {
             width: 100%;
             height: 600px;
-            background: #eee;
+            margin: 20px 0;
             border-radius: 12px;
-            position: relative;
             overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
-
-        .skeleton-map::after {
-            content: "Loading Map...";
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: #666;
-            font-size: 1.5em;
+        .search-container {
+            width: 100%;
+            max-width: 600px;
+            margin: 20px auto;
+            position: relative;
+            z-index: 1;
         }
-
-        .skeleton-card {
-            height: 180px;
-            background: #eee;
+        .search-bar {
+            width: 100%;
+            padding: 12px 20px;
+            font-size: 16px;
+            border: 2px solid #3498db;
+            border-radius: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            outline: none;
+            background: white;
+            transition: all 0.3s ease;
+        }
+        .search-bar:focus {
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            border-color: #2980b9;
+        }
+        .color-bar-legend {
+            width: 100%;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 15px;
+            background: white;
             border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
-
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(255, 255, 255, 0.9);
+        .color-bar {
+            height: 30px;
+            width: 100%;
+            background: linear-gradient(to right, blue, lightblue, green, orange, red);
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .temperature-marks {
             display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
+            justify-content: space-between;
+            margin-top: 5px;
+            color: #2C3E50;
+            font-size: 14px;
         }
-
-        .loading-spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid #3498db;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .legend-title {
+            color: #2C3E50;
+            font-size: 16px;
+            margin-bottom: 10px;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
-    <!-- Loading overlay -->
-    <div id="loadingOverlay" class="loading-overlay">
-        <div style="text-align: center;">
-            <div class="loading-spinner" style="margin-bottom: 20px;"></div>
-            <!-- <div style="color: #2C3E50; font-size: 1.2em;">Loading Weather Data...</div> -->
-        </div>
-    </div>
-
     <div class="header">
-        <h1>Real-time Weather Dashboard</h1>
+        <h1>World Capitals Weather Dashboard</h1>
+        <div class="subtitle">Including All UAE Emirates</div>
     </div>
 
     <div id="refreshStatus" class="refresh-status">
-        🔄 Updating weather data...
+        🔄 Loading cities...
     </div>
 
     <div class="container">
-        <!-- Weather Map -->
         <div class="map-container" id="mapContainer">
-            <div id="actualMap" style="height: 100%;">
-                {{ weather_map | safe if weather_map else '' }}
+            {{ weather_map | safe }}
+        </div>
+
+        <div class="color-bar-legend">
+            <div class="legend-title">Temperature Scale</div>
+            <div class="color-bar"></div>
+            <div class="temperature-marks">
+                <span>< 0°C</span>
+                <span>0-10°C</span>
+                <span>10-20°C</span>
+                <span>20-30°C</span>
+                <span>> 30°C</span>
             </div>
         </div>
 
-        <!-- Current Weather Cards -->
+        <div class="search-container">
+            <input type="text" 
+                   class="search-bar" 
+                   id="citySearch" 
+                   placeholder="Search for a city..."
+                   autocomplete="off">
+        </div>
+
         <div class="current-weather" id="weatherCards">
             {% if latest_data %}
                 {% for weather in latest_data %}
                 <div class="weather-card">
-                    <h3>{{ weather.city }}</h3>
+                    <h3 style="color: {{ weather.temp_color }}">{{ weather.city }}</h3>
                     <p><span class="weather-icon">🌡️</span><strong>Temperature:</strong> {{ "%.1f"|format(weather.temperature) }}°C</p>
                     <p><span class="weather-icon">💧</span><strong>Humidity:</strong> {{ "%.0f"|format(weather.humidity) }}%</p>
                     <p><span class="weather-icon">💨</span><strong>Wind Speed:</strong> {{ "%.1f"|format(weather.wind_speed) }} km/h</p>
                     <p><span class="weather-icon">🌤️</span><strong>Condition:</strong> {{ weather.condition }}</p>
                 </div>
-                {% endfor %}
-            {% else %}
-                {% for i in range(6) %}
-                <div class="skeleton-card"></div>
                 {% endfor %}
             {% endif %}
         </div>
@@ -207,19 +200,10 @@
 
     <script>
         let citiesLoaded = new Set();
-        let uaeCitiesCount = 7;
-        let totalExpectedCities = 70;
-        let initialLoadDone = false;
+        let totalExpectedCities = 79;
         let refreshInterval;
         let mapLoaded = false;
-
-        function showLoadingOverlay() {
-            document.getElementById('loadingOverlay').style.display = 'flex';
-        }
-
-        function hideLoadingOverlay() {
-            document.getElementById('loadingOverlay').style.display = 'none';
-        }
+        let lastMapUpdateCount = 0;
 
         function checkLoadedCities(weatherCards) {
             const cities = Array.from(weatherCards.querySelectorAll('.weather-card h3'))
@@ -230,81 +214,75 @@
 
         async function refreshDashboard() {
             try {
-                // Show refresh status if not all cities are loaded
-                if (citiesLoaded.size < totalExpectedCities) {
-                    document.getElementById('refreshStatus').classList.add('show');
-                }
-
                 const response = await fetch(window.location.href);
                 const html = await response.text();
-                
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
                 
-                // Update the map
-                const newMap = doc.querySelector('#actualMap').innerHTML;
-                if (newMap && newMap.includes('leaflet')) {
-                    const actualMap = document.getElementById('actualMap');
-                    actualMap.innerHTML = newMap;
-                    if (!mapLoaded) {
-                        console.log('Map loaded successfully');
-                        mapLoaded = true;
-                    }
-                }
-                
-                // Update weather cards
                 const weatherCardsContainer = document.querySelector('.current-weather');
                 const newCards = doc.querySelector('.current-weather').innerHTML;
                 
                 if (newCards.includes('weather-card')) {
                     weatherCardsContainer.innerHTML = newCards;
                     const currentLoadedCount = checkLoadedCities(weatherCardsContainer);
-                    console.log(`Loaded cities: ${currentLoadedCount}/${totalExpectedCities}`);
-
-                    // Update refresh status text
+                    
                     document.getElementById('refreshStatus').textContent = 
                         `🔄 Loading cities... (${currentLoadedCount}/${totalExpectedCities})`;
 
-                    // Remove loading overlay when we have both map and UAE cities
-                    if (!initialLoadDone && currentLoadedCount >= uaeCitiesCount && mapLoaded) {
-                        console.log('Initial load complete');
-                        hideLoadingOverlay();
-                        initialLoadDone = true;
+                    if (currentLoadedCount >= lastMapUpdateCount + 15 || currentLoadedCount >= totalExpectedCities) {
+                        const newMap = doc.querySelector('.map-container').innerHTML;
+                        if (newMap && newMap.includes('leaflet')) {
+                            document.querySelector('.map-container').innerHTML = newMap;
+                            lastMapUpdateCount = currentLoadedCount;
+                            if (!mapLoaded) mapLoaded = true;
+                        }
                     }
 
-                    // Stop refreshing when all cities are loaded
                     if (currentLoadedCount >= totalExpectedCities && mapLoaded) {
-                        console.log('All cities loaded, stopping refresh');
                         clearInterval(refreshInterval);
                         document.getElementById('refreshStatus').classList.remove('show');
-                        return;
                     }
                 }
-                
             } catch (error) {
                 console.error('Error refreshing dashboard:', error);
             }
         }
 
-        // Initial page load
+        function initializeSearch() {
+            const searchBar = document.getElementById('citySearch');
+            
+            function filterContent() {
+                const searchTerm = searchBar.value.toLowerCase().trim();
+                const weatherCards = document.querySelectorAll('.weather-card');
+                weatherCards.forEach(card => {
+                    const cityName = card.querySelector('h3').textContent.toLowerCase();
+                    card.style.display = cityName.includes(searchTerm) ? 'block' : 'none';
+                });
+            }
+
+            searchBar.addEventListener('input', filterContent);
+            searchBar.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    searchBar.value = '';
+                    filterContent();
+                    searchBar.blur();
+                }
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
-            showLoadingOverlay();
-            
-            // Show refresh status immediately
             document.getElementById('refreshStatus').classList.add('show');
-            
-            // Try to load immediately
             refreshDashboard();
+            initializeSearch();
             
-            // Set up refresh interval
             refreshInterval = setInterval(() => {
-                if (!mapLoaded || citiesLoaded.size < totalExpectedCities) {
+                if (citiesLoaded.size < totalExpectedCities || !mapLoaded) {
                     refreshDashboard();
                 } else {
                     clearInterval(refreshInterval);
                     document.getElementById('refreshStatus').classList.remove('show');
                 }
-            }, 10000);
+            }, 5000);
         });
     </script>
 </body>
